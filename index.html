@@ -1,0 +1,359 @@
+<html lang="en">
+
+<head>
+    <title>WebAuthn.io</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="Description" content="Demonstration of the WebAuthn specification.">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="WebAuthn.how">
+    <meta property="og:url" content="https://webauthn.how">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:creator" content="@w3c">
+    <meta property="og:title" content="A demonstration of the WebAuthn specification">
+    <meta name="twitter:title" content="A demonstration of the WebAuthn specification">
+
+    <meta name="twitter:image" content="https://webauthn.io/dist/images/header-illi.png">
+    <meta property="og:image" content="https://webauthn.guide/dist/images/header-illi.png">
+    <meta property="og:image:width" content="1066">
+    <meta property="og:image:height" content="849">
+
+
+    <script type="text/javascript" src="/dist/js/jquery-3.2.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js"
+        integrity="sha384-b/U6ypiBEHpOf/4+1nzFpr53nxSS+GLCkfwBdFNTxtclqqenISfwAzpKaMNFNmj4"
+        crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js"
+        integrity="sha384-alpBpkh1PFOepccYVYDB4do5UnbKysX5WZXm3XxPqe5iKTfUKjNkCk9SaVuEZflJ"
+        crossorigin="anonymous"></script>
+    <script type="text/javascript" src="/dist/js/webauthn.js"></script>
+    <script type="text/javascript" src="/dist/js/cbor.js"></script>
+    <script type="text/javascript" src="/dist/js/base64.js"></script>
+    <link href="/dist/css/index.css" rel="stylesheet">
+</head>
+
+<body onload="detectWebAuthnSupport()">
+    <div class="section">
+        <div class="hero section">
+            <div class="container">
+                <div class="row">
+                    <div class="main-content col-md-12">
+                        <div class="row">
+                            <div class="hero-left order-2 col-lg-6 order-lg-1">
+                                <h2>WebAuthn.io</h2>
+                                <h5>A demo of the WebAuthn specification</h5>
+                                <div class="mt-5 hero-form">
+                                    <div class="form-group">
+                                        <input type="email" class="form-control form-control-lg" id="input-email"
+                                            placeholder="example_username">
+                                    </div>
+                                    <div class="input-group input-group-lg mb-3">
+                                        <div class="input-group-prepend">
+                                            <label class="input-group-text" for="select-authenticator">Attestation
+                                                Type</label>
+                                        </div>
+                                        <select class="custom-select form-control" id="select-attestation">
+                                            <option selected value="none">None</option>
+                                            <option value="indirect">Indirect</option>
+                                            <option value="direct">Direct</option>
+                                        </select>
+                                    </div>
+                                    <div class="input-group input-group-lg mb-3">
+                                        <div class="input-group-prepend">
+                                            <label class="input-group-text" for="select-authenticator">Authenticator
+                                                Type</label>
+                                        </div>
+                                        <select class="custom-select form-control" id="select-authenticator">
+                                            <option selected value="">Unspecified</option>
+                                            <option value="cross-platform">Cross platform</option>
+                                            <option value="platform">Platform (TPM)</option>
+                                        </select>
+                                    </div>
+                                    <div class="input-group mb-3">
+                                        <button onclick="makeCredential()" id="register-button"
+                                            class="btn btn-lg btn-primary">Register</button>
+                                        <button onclick="getAssertion()" id="login-button"
+                                            class="btn btn-lg btn-primary" data-toggle="popover"
+                                            data-content="Success! Now try logging in :)">Login</button>
+                                    </div>
+                                    <div class="mb-3">
+                                        <button class="btn btn-primary" type="button" data-toggle="collapse"
+                                            data-target="#advancedSettings" aria-expanded="false"
+                                            aria-controls="collapseExample">
+                                            Advanced Settings
+                                        </button>
+                                    </div>
+                                    <div class="input-group">
+                                        <div id="alert">
+                                            <img class="warning-icon" src="/dist/images/warning.svg" />
+                                            <span id="alert-msg"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="hero-right order-1 col-lg-6 order-lg-2">
+                                <img role="presentation" class="main" alt="" src="/dist/images/header-illi.svg">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="advanced section">
+            <div class="container">
+                <div class="row">
+                    <div class="main-content col-md-12">
+                        <div class="row">
+                            <div class="main-content col-lg-8">
+                                <div class="collapse advanced-settings" id="advancedSettings">
+                                    <div class="input-group">
+                                        <h3>Advanced Settings</h3>
+                                        <div class="input-group input-group-lg mb-3">
+                                            <div class="input-group-prepend">
+                                                <label class="input-group-text" for="select-verification">User
+                                                    Verification</label>
+                                            </div>
+                                            <select class="custom-select form-control" id="select-verification">
+                                                <option selected value="discouraged">Discouraged</option>
+                                                <option value="preferred">Preferred</option>
+                                                <option value="required">Required</option>
+                                            </select>
+                                        </div>
+                                        <div class="input-group input-group-lg mb-3">
+                                            <div class="input-group-prepend">
+                                                <label class="input-group-text" for="select-residency">Register with
+                                                    Resident Key</label>
+                                            </div>
+                                            <select class="custom-select form-control" id="select-residency">
+                                                <option selected value="false">Not Required</option>
+                                                <option value="true">Required</option>
+                                            </select>
+                                        </div>
+                                        <div class="input-group input-group-lg mb-3">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text" id="inputGroup-sizing-lg">txAuthSimple
+                                                    Extension</span>
+                                            </div>
+                                            <input id="extension-input" type="text" class="form-control"
+                                                aria-label="Large" aria-describedby="inputGroup-sizing-lg"
+                                                placeholder="Go passwordless!">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="container">
+                <div class="section intro">
+                    <div class="row">
+                        <div class="col-lg-5 d-flex justify-content-center mb-5">
+                            <img role="presentation" alt="" src="/dist/images/shield.svg">
+                        </div>
+                        <div class="col-lg-7">
+                            <h3>What is WebAuthn?</h3>
+                            <p>Welcome to webauthn.io! This site is designed by <a href="https://duo.com/labs">Duo
+                                    Labs</a> to test
+                                the new
+                                W3C Specification Web Authentication. WebAuthn is supported in the Chrome,
+                                Firefox, and Edge browsers to different degrees, but support for credential
+                                creation and assertion using a U2F Token, like those provided by Yubico and
+                                Feitian, is supported by all of them. The code for this demo can be found
+                                <a href="https://github.com/duo-labs/webauthn.io">here on GitHub</a>. To read more about
+                                WebAuthn
+                                and what is does, check out
+                                <a href="https://webauthn.guide">webauthn.guide</a> for an introduction.</p>
+                            <div class="row">
+                                <div class="col-md-8 col-sm-12">
+                                    <a href="https://webauthn.guide" class="btn btn-primary btn-lg w-100">
+                                        Read more at webauthn.guide
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section libraries">
+                    <div class="row">
+                        <div class="mx-0 col-lg-6 libraries-header">
+                            <h3>Using WebAuthn</h3>
+                            <p>Get started using WebAuthn with one of these libraries:</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="mt-3 col-sm-12 col-md-6 col-lg-4 d-flex flex-column">
+                            <a class="library" href="https://github.com/duo-labs/webauthn">
+                                <h5>Go</h5>
+                                <p class="mb-1"><img class="icon" src="/dist/images/github.svg" /> <span
+                                        class="ml-2">duo-labs/webauthn</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/author.svg" /> <span
+                                        class="ml-2">Duo Labs</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/brackets.svg" /> <span
+                                        class="ml-2">Server</span></p>
+                            </a>
+                        </div>
+                        <div class="mt-3 col-sm-12 col-md-6 col-lg-4 d-flex flex-column">
+                            <a class="library" href="https://github.com/duo-labs/webauthn.io">
+                                <h5>Go</h5>
+                                <p class="mb-1"><img class="icon" src="/dist/images/github.svg" /> <span
+                                        class="ml-2">duo-labs/webauthn.io</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/author.svg" /> <span
+                                        class="ml-2">Duo Labs</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/brackets.svg" /> <span
+                                        class="ml-2">Demo</span></p>
+                            </a>
+                        </div>
+                        <div class="mt-3 col-sm-12 col-md-6 col-lg-4 d-flex flex-column">
+                            <a class="library" href="https://github.com/koesie10/webauthn">
+                                <h5>Go</h5>
+                                <p class="mb-1"><img class="icon" src="/dist/images/github.svg" /> <span
+                                        class="ml-2">koesie10/webauthn</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/author.svg" /> <span
+                                        class="ml-2">Koen
+                                        Vlaswinkel</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/brackets.svg" /> <span
+                                        class="ml-2">Server</span></p>
+                            </a>
+                        </div>
+                        <div class="mt-3 col-sm-12 col-md-6 col-lg-4 d-flex flex-column">
+                            <a class="library" href="https://github.com/duo-labs/android-webauthn-authenticator">
+                                <h5>Java</h5>
+                                <p class="mb-1"><img class="icon" src="/dist/images/github.svg" /> <span
+                                        class="ml-2">duo-labs/android-webauthn-authenticator</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/author.svg" /> <span
+                                        class="ml-2">Duo Labs</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/brackets.svg" /> <span
+                                        class="ml-2">Authenticator</span></p>
+                            </a>
+                        </div>
+                        <div class="mt-3 col-sm-12 col-md-6 col-lg-4 d-flex flex-column">
+                            <a class="library" href="https://github.com/google/webauthndemo">
+                                <h5>Java</h5>
+                                <p class="mb-1"><img class="icon" src="/dist/images/github.svg" /> <span
+                                        class="ml-2">google/webauthndemo</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/author.svg" /> <span
+                                        class="ml-2">Google</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/brackets.svg" /> <span
+                                        class="ml-2">Demo</span></p>
+                            </a>
+                        </div>
+                        <div class="mt-3 col-sm-12 col-md-6 col-lg-4 d-flex flex-column">
+                            <a class="library" href="https://github.com/webauthn4j/webauthn4j">
+                                <h5>Java</h5>
+                                <p class="mb-1"><img class="icon" src="/dist/images/github.svg" /> <span
+                                        class="ml-2">webauthn4j/webauthn4j</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/author.svg" /> <span
+                                        class="ml-2">Yoshikazu Nojima</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/brackets.svg" /> <span
+                                        class="ml-2">Server</span></p>
+                            </a>
+                        </div>
+                        <div class="mt-3 col-sm-12 col-md-6 col-lg-4 d-flex flex-column">
+                            <a class="library" href="https://github.com/Yubico/java-webauthn-server">
+                                <h5>Java</h5>
+                                <p class="mb-1"><img class="icon" src="/dist/images/github.svg" /> <span
+                                        class="ml-2">Yubico/java-webauthn-server</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/author.svg" /> <span
+                                        class="ml-2">Yubico</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/brackets.svg" /> <span
+                                        class="ml-2">Server</span></p>
+                            </a>
+                        </div>
+                        <div class="mt-3 col-sm-12 col-md-6 col-lg-4 d-flex flex-column">
+                            <a class="library" href="https://github.com/fido-alliance/webauthn-demo">
+                                <h5>Javascript</h5>
+                                <p class="mb-1"><img class="icon" src="/dist/images/github.svg" /> <span
+                                        class="ml-2">fido-alliance/webauthn-demo</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/author.svg" /> <span
+                                        class="ml-2">Fido
+                                        Alliance</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/brackets.svg" /> <span
+                                        class="ml-2">Demo</span></p>
+                            </a>
+                        </div>
+                        <div class="mt-3 col-sm-12 col-md-6 col-lg-4 d-flex flex-column">
+                            <a class="library" href="https://github.com/abergs/fido2-net-lib">
+                                <h5>.NET</h5>
+                                <p class="mb-1"><img class="icon" src="/dist/images/github.svg" /> <span
+                                        class="ml-2">abergs/fido2-net-lib</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/author.svg" /> <span
+                                        class="ml-2">Anders Åberg</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/brackets.svg" /> <span
+                                        class="ml-2">Server/Demo</span></p>
+                            </a>
+                        </div>
+                        <div class="mt-3 col-sm-12 col-md-6 col-lg-4 d-flex flex-column">
+                            <a class="library" href="https://github.com/duo-labs/py_webauthn">
+                                <h5>Python</h5>
+                                <p class="mb-1"><img class="icon" src="/dist/images/github.svg" /> <span
+                                        class="ml-2">duo-labs/py_webauthn</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/author.svg" /> <span
+                                        class="ml-2">Duo Labs</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/brackets.svg" /> <span
+                                        class="ml-2">Server/Demo</span></p>
+                            </a>
+                        </div>
+                        <div class="mt-3 col-sm-12 col-md-6 col-lg-4 d-flex flex-column">
+                            <a class="library" href="https://github.com/cedarcode/webauthn-ruby">
+                                <h5>Ruby</h5>
+                                <p class="mb-1"><img class="icon" src="/dist/images/github.svg" /> <span
+                                        class="ml-2">cedarcode/webauthn-ruby</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/author.svg" /> <span
+                                        class="ml-2">Cedarcode</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/brackets.svg" /> <span
+                                        class="ml-2">Server</span></p>
+                            </a>
+                        </div>
+                        <div class="mt-3 col-sm-12 col-md-6 col-lg-4 d-flex flex-column">
+                            <a class="library" href="https://github.com/google/virtual-authenticators-tab">
+                                <h5>Chrome Extension</h5>
+                                <p class="mb-1"><img class="icon" src="/dist/images/github.svg" /> <span
+                                        class="ml-2">google/virtual-authenticators-tab</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/author.svg" /> <span
+                                        class="ml-2">Nina Satragno</span></p>
+                                <p class="mb-1"><img class="icon" src="/dist/images/brackets.svg" /> <span
+                                        class="ml-2">Authenticator</span></p>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="bio-section d-flex flex-wrap section footer-image">
+                    <div class="row bio-content">
+                        <div class="col-lg-5">
+                            <h4 class="bio-header">Nick Steele</h4>
+                            <p>Nick Steele is an R&D engineer with <a href="https://duo.com/labs">Duo Labs</a> and a W3C
+                                Invited Expert for the WebAuthn standard.</p>
+                            <p>While his focus lies in user authentication and authorization, he also has strong
+                                opinions about
+                                sci-fi
+                                and ramen.
+                            </p>
+                            <p><a href="https://twitter.com/codekaiju"><img class="twitter-logo"
+                                        src="/dist/images/twitter.svg" />@codekaiju</a></p>
+                        </div>
+                    </div>
+                    <div class="bio-image">
+                        <img src="/dist/images/nickbio.svg" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global site tag (gtag.js) - Google Analytics -->
+        <!-- <script async src="https://www.googletagmanager.com/gtag/js?id=UA-20141016-21"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+
+            function gtag() {
+                dataLayer.push(arguments);
+            }
+            gtag('js', new Date());
+            gtag('config', 'UA-20141016-21');
+        </script> -->
+</body>
+
+</html>
