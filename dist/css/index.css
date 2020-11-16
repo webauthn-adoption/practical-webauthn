@@ -10253,7 +10253,7 @@ pre span {
 
 @media (min-width: 992px) {
   .hero {
-    background-image: url(/dist/images/header-bg.svg);
+    background-image: url(/dist/images/header-illi.svg);
     background-repeat: no-repeat;
     background-position: top;
   }
@@ -10279,7 +10279,7 @@ pre span {
 
 @media (min-width: 992px) {
   .hero.confetti {
-    background-image: url(/dist/images/confetti.svg), url(/dist/images/header-bg.svg);
+    background-image: url(/dist/images/header-illi.svg);
   }
 }
 
