@@ -10256,6 +10256,7 @@ pre span {
     background-image: url(/dist/images/header-illi.svg);
     background-repeat: no-repeat;
     background-position: top;
+    background-size: auto 600px;
   }
 }
 
