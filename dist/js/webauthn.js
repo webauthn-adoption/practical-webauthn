@@ -1,265 +1,777 @@
-function detectWebAuthnSupport() {
-    if (window.PublicKeyCredential === undefined ||
-        typeof window.PublicKeyCredential !== "function") {
-        $('#register-button').attr("disabled", true);
-        $('#login-button').attr("disabled", true);
-        var errorMessage = "Oh no! This browser doesn't currently support WebAuthn."
-        if (window.location.protocol === "http:" && (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1")){
-            errorMessage = "WebAuthn only supports secure connections. For testing over HTTP, you can use the origin \"localhost\"."
-        }
-        showErrorAlert(errorMessage);
-        return;
-    }
-}
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-function string2buffer(str) {
-    return (new Uint8Array(str.length)).map(function (x, i) {
-        return str.charCodeAt(i)
-    });
-}
-
-// Encode an ArrayBuffer into a base64 string.
-function bufferEncode(value) {
-    return base64js.fromByteArray(value)
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=/g, "");
-}
-
-// Don't drop any blanks
-// decode
-function bufferDecode(value) {
-    return Uint8Array.from(atob(value), c => c.charCodeAt(0));
-}
-
-function buffer2string(buf) {
-    let str = "";
-    if (!(buf.constructor === Uint8Array)) {
-        buf = new Uint8Array(buf);
-    }
-    buf.map(function (x) {
-        return str += String.fromCharCode(x)
-    });
-    return str;
-}
-
-var state = {
-    createResponse: null,
-    publicKeyCredential: null,
-    credential: null,
-    user: {
-        name: "testuser@example.com",
-        displayName: "testuser",
-    },
-}
-
-function setUser() {
-    username = $("#input-email").val();
-    state.user.name = username.toLowerCase().replace(/\s/g, '');
-    state.user.displayName = username.toLowerCase();
-}
-
-function checkUserExists() {
-    $.get('/user/' + state.user.name + '/exists', {}, null, 'json')
-        .done(function (response) {
-            return true;
-        }).catch(function () {
-            return false;
-        });
-}
-
-function getCredentials() {
-    $.get('/credential/' + state.user.name, {}, null, 'json')
-        .done(function (response) {
-            console.log(response)
-        });
-}
-
-function makeCredential() {
-    hideErrorAlert();
-    console.log("Fetching options for new credential");
-    if ($("#input-email").val() === "") {
-        showErrorAlert("Please enter a username");
-        return;
-    }
-    setUser();
-    var credential = null;
-
-    var attestation_type = $('#select-attestation').find(':selected').val();
-    var authenticator_attachment = $('#select-authenticator').find(':selected').val();
-    
-    var user_verification = $('#select-verification').find(':selected').val();
-    var resident_key_requirement = $('#select-residency').find(':selected').val();
-    var txAuthSimple_extension = $('#extension-input').val();
-
-    $.get('/makeCredential/' + state.user.name, {
-            attType: attestation_type,
-            authType: authenticator_attachment,
-            userVerification: user_verification,
-            residentKeyRequirement: resident_key_requirement,
-            txAuthExtension: txAuthSimple_extension,
-        }, null, 'json')
-        .done(function (makeCredentialOptions) {            
-            makeCredentialOptions.publicKey.challenge = bufferDecode(makeCredentialOptions.publicKey.challenge);
-            makeCredentialOptions.publicKey.user.id = bufferDecode(makeCredentialOptions.publicKey.user.id);
-            if (makeCredentialOptions.publicKey.excludeCredentials) {
-                for (var i = 0; i < makeCredentialOptions.publicKey.excludeCredentials.length; i++) {
-                    makeCredentialOptions.publicKey.excludeCredentials[i].id = bufferDecode(makeCredentialOptions.publicKey.excludeCredentials[i].id);
-                }
-            }
-            console.log("Credential Creation Options");
-            console.log(makeCredentialOptions);
-            navigator.credentials.create({
-                publicKey: makeCredentialOptions.publicKey
-            }).then(function (newCredential) {
-                console.log("PublicKeyCredential Created");
-                console.log(newCredential);
-                state.createResponse = newCredential;
-                registerNewCredential(newCredential);
-            }).catch(function (err) {
-                console.info(err);
-            });
-        });
-}
-
-// This should be used to verify the auth data with the server
-function registerNewCredential(newCredential) {
-    // Move data into Arrays incase it is super long
-    let attestationObject = new Uint8Array(newCredential.response.attestationObject);
-    let clientDataJSON = new Uint8Array(newCredential.response.clientDataJSON);
-    let rawId = new Uint8Array(newCredential.rawId);
-
-    $.ajax({
-        url: '/makeCredential',
-        type: 'POST',
-        data: JSON.stringify({
-            id: newCredential.id,
-            rawId: bufferEncode(rawId),
-            type: newCredential.type,
-            response: {
-                attestationObject: bufferEncode(attestationObject),
-                clientDataJSON: bufferEncode(clientDataJSON),
-            },
-        }),
-        contentType: "application/json; charset=utf-8",
-        dataType: "json",
-        success: function (response) {
-            $("#login-button").popover('show')
-        }
-    });
-}
-
-function addUserErrorMsg(msg) {
-    if (msg === "username") {
-        msg = 'Please add username';
-    } else {
-        msg = 'Please add email';
-    }
-    document.getElementById("user-create-error").innerHTML = msg;
-}
-
-function getAssertion() {
-    hideErrorAlert();
-    if ($("#input-email").val() === "") {
-        showErrorAlert("Please enter a username");
-        return;
-    }
-    setUser();
-    $.get('/user/' + state.user.name + '/exists', {}, null, 'json').done(function (response) {
-            console.log(response);
-        }).then(function () {
-            
-            var user_verification = $('#select-verification').find(':selected').val();            
-            var txAuthSimple_extension = $('#extension-input').val();
-
-            $.get('/assertion/' + state.user.name, {
-                userVer: user_verification,
-                txAuthExtension: txAuthSimple_extension
-            }, null, 'json')
-                .done(function (makeAssertionOptions) {
-                    console.log("Assertion Options:");
-                    console.log(makeAssertionOptions);
-                    makeAssertionOptions.publicKey.challenge = bufferDecode(makeAssertionOptions.publicKey.challenge);
-                    makeAssertionOptions.publicKey.allowCredentials.forEach(function (listItem) {
-                        listItem.id = bufferDecode(listItem.id)
-                    });
-                    console.log(makeAssertionOptions);
-                    navigator.credentials.get({
-                            publicKey: makeAssertionOptions.publicKey
-                        })
-                        .then(function (credential) {
-                            console.log(credential);
-                            verifyAssertion(credential);
-                        }).catch(function (err) {
-                            console.log(err.name);
-                            showErrorAlert(err.message);
-                        });
-                });
-        })
-        .catch(function (error) {
-            if (!error.exists) {
-                showErrorAlert("User not found, try registering one first!");
-            }
-            return;
-        });
-}
-
-function verifyAssertion(assertedCredential) {
-    // Move data into Arrays incase it is super long
-    console.log('calling verify')
-    let authData = new Uint8Array(assertedCredential.response.authenticatorData);
-    let clientDataJSON = new Uint8Array(assertedCredential.response.clientDataJSON);
-    let rawId = new Uint8Array(assertedCredential.rawId);
-    let sig = new Uint8Array(assertedCredential.response.signature);
-    let userHandle = new Uint8Array(assertedCredential.response.userHandle);
-    $.ajax({
-        url: '/assertion',
-        type: 'POST',
-        data: JSON.stringify({
-            id: assertedCredential.id,
-            rawId: bufferEncode(rawId),
-            type: assertedCredential.type,
-            response: {
-                authenticatorData: bufferEncode(authData),
-                clientDataJSON: bufferEncode(clientDataJSON),
-                signature: bufferEncode(sig),
-                userHandle: bufferEncode(userHandle),
-            },
-        }),
-        contentType: "application/json; charset=utf-8",
-        dataType: "json",
-        success: function (response) {
-            window.location = "/dashboard"
-            console.log(response)
-        }
-    });
-}
-
-function setCurrentUser(userResponse) {
-    state.user.name = userResponse.name;
-    state.user.displayName = userResponse.display_name;
-}
-
-function showErrorAlert(msg) {
-    $("#alert-msg").text(msg)
-    $("#alert").show();
-}
-
-function hideErrorAlert() {
-    $("#alert").hide();
-}
-
-function popoverPlacement(context, source) {
-    if ($(window).width() < 992) {
-        return "bottom"
-    }
-    return "right";
-}
-
-$(document).ready(function () {
-    $('[data-toggle="popover"]').popover({
-        trigger: 'manual',
-        container: 'body',
-        placement: popoverPlacement
-    })
-})
+ var TIMEOUT = 2000; // ms
+ const flag_TUP = 0x01;
+ const flag_AT = 0x40;
+ 
+ const cose_kty = 1;
+ const cose_kty_ec2 = 2;
+ const cose_alg = 3;
+ const cose_alg_ECDSA_w_SHA256 = -7;
+ const cose_crv = -1;
+ const cose_crv_P256 = 1;
+ const cose_crv_x = -2;
+ const cose_crv_y = -3;
+ 
+ class ResultTracker {
+   construct() {
+     this.reset()
+   }
+   reset() {
+     this.failCount = 0;
+     this.todoCount = 0;
+   }
+   fail() {
+     this.failCount += 1;
+   }
+   todo() {
+     this.todoCount += 1;
+   }
+   get failures() {
+     return this.failCount;
+   }
+   get todos() {
+     return this.todoCount;
+   }
+   passed() {
+     return this.failures == 0;
+   }
+   toString() {
+     return "Failures: " + this.failures + " TODOs: " + this.todos;
+   }
+ }
+ 
+ var gResults = new ResultTracker()
+ 
+ function append(id, text) {
+   $("#"+id).text($("#"+id).text() + text);
+ }
+ 
+ function test(id, test, text) {
+   if (!test) { gResults.fail(); }
+   let message = (test)? "[PASS]" : "[FAIL]";
+   message += " " + text + "\n";
+   append(id, message);
+   return test;
+ }
+ 
+ function testEqual(id, val1, val2, msg) {
+   let result = (val1 == val2);
+   let cmp = (result)? " == " : " != ";
+   return test(id, result, msg + ": " + val1 + cmp + val2);
+ }
+ 
+ function getArrayBuffer(id, buf) {
+   if (buf.constructor === Uint8Array) {
+     // buf is a shared array, and we want to make copies of particular parts
+     // for our ArrayBuffer views.
+     return buf.slice(0, buf.byteLength).buffer;
+   }
+   return buf;
+ }
+ 
+ function resultColor(id) {
+   if (gResults.failures == 0) {
+     if (gResults.todos == 0) {
+       $("#"+id).removeClass("failure"); $("#"+id).removeClass("todo"); $("#"+id).addClass("success");
+     } else {
+       $("#"+id).removeClass("failure"); $("#"+id).removeClass("success"); $("#"+id).addClass("todo");
+     }
+   } else {
+     $("#"+id).removeClass("success"); $("#"+id).removeClass("todo"); $("#"+id).addClass("failure");
+   }
+ }
+ 
+ function hexEncode(buf) {
+   if (!(buf.constructor === Uint8Array)) {
+     buf = new Uint8Array(buf);
+   }
+   return Array.from(buf)
+               .map(function(x){ return ("0"+x.toString(16)).substr(-2) })
+               .join("");
+ }
+ 
+ function hexDecode(str) {
+   return new Uint8Array(str.match(/../g).map(function(x){ return parseInt(x, 16) }));
+ }
+ 
+ function b64enc(buf) {
+   return base64js.fromByteArray(buf)
+                  .replace(/\+/g, "-")
+                  .replace(/\//g, "_")
+                  .replace(/=/g, "");
+ }
+ 
+ function string2buffer(str) {
+   return (new Uint8Array(str.length)).map(function(x, i){ return str.charCodeAt(i) });
+ }
+ 
+ function buffer2string(buf) {
+   let str = "";
+   if (!(buf.constructor === Uint8Array)) {
+     buf = new Uint8Array(buf);
+   }
+   buf.map(function(x){ return str += String.fromCharCode(x) });
+   return str;
+ }
+ 
+ function b64dec(str) {
+   if (str.length % 4 == 1) {
+     throw "Improper b64 string";
+   }
+ 
+   var b64 = str;
+   while (b64.length % 4 != 0) {
+     b64 += "=";
+   }
+   return new Uint8Array(base64js.toByteArray(b64));
+ }
+ 
+ function deriveAppAndChallengeParam(appId, clientData, attestation) {
+   var appIdBuf = string2buffer(appId);
+   return Promise.all([
+     crypto.subtle.digest("SHA-256", appIdBuf),
+     crypto.subtle.digest("SHA-256", clientData)
+   ])
+   .then(function(digests) {
+     return {
+       appParam: new Uint8Array(digests[0]),
+       challengeParam: new Uint8Array(digests[1]),
+       attestation: attestation
+     };
+   });
+ }
+ 
+ function assembleSignedData(appParam, flags, counter, challengeParam) {
+   let signedData = new Uint8Array(32 + 1 + 4 + 32);
+   new Uint8Array(appParam).map((x, i) => signedData[0 + i] = x);
+   signedData[32] = new Uint8Array(flags)[0];
+   new Uint8Array(counter).map((x, i) => signedData[33 + i] = x);
+   new Uint8Array(challengeParam).map((x, i) => signedData[37 + i] = x);
+   return signedData;
+ }
+ 
+ function assembleRegistrationSignedData(appParam, challengeParam, keyHandle, pubKey) {
+   let signedData = new Uint8Array(1 + 32 + 32 + keyHandle.length + 65);
+   signedData[0] = 0x00;
+   new Uint8Array(appParam).map((x, i) => signedData[1 + i] = x);
+   new Uint8Array(challengeParam).map((x, i) => signedData[33 + i] = x);
+   new Uint8Array(keyHandle).map((x, i) => signedData[65 + i] = x);
+   new Uint8Array(pubKey).map((x, i) => signedData[65 + keyHandle.length + i] = x);
+   return signedData;
+ }
+ 
+ function assemblePublicKeyBytesData(xCoord, yCoord) {
+   // Produce an uncompressed EC key point. These start with 0x04, and then
+   // two 32-byte numbers denoting X and Y.
+   if (xCoord.length != 32 || yCoord.length != 32) {
+     throw ("Coordinates must be 32 bytes long");
+   }
+   let keyBytes = new Uint8Array(65);
+   keyBytes[0] = 0x04;
+   xCoord.map((x, i) => keyBytes[1 + i] = x);
+   yCoord.map((x, i) => keyBytes[33 + i] = x);
+   return keyBytes;
+ }
+ 
+ var state = {
+   // Raw messages
+   createRequest: null,
+   createResponse: null,
+   // challengeBytes: null,
+   // registeredKey: null,
+   // signResponse: null,
+ 
+   // Parsed values
+   publicKey: null,
+   keyHandle: null,
+ }
+ 
+ function webAuthnDecodeCBORAttestation(aCborAttBuf) {
+   let attObj = CBOR.decode(aCborAttBuf);
+   console.log(":: Attestation CBOR Object ::");
+   if (!("authData" in attObj && "fmt" in attObj && "attStmt" in attObj)) {
+     throw "Invalid CBOR Attestation Object";
+   }
+ 
+   if (attObj.fmt == "fido-u2f") {
+     if (!("sig" in attObj.attStmt && "x5c" in attObj.attStmt)) {
+       throw "Invalid CBOR Attestation Statement";
+     }
+ 
+     append("createOut", "\n:: FIDO-U2F Attestation Format ::\n");
+     return webAuthnDecodeAuthDataArray(new Uint8Array(attObj.authData))
+     .then(async function (aAttestationObj) {
+ 
+       /* Decode U2F Attestation Certificates */
+       append("createOut", "\n:: Attestation Certificate Information ::\n");
+       if (attObj.attStmt.x5c.length != 1) {
+         throw "Can't yet handle cert chains != 1 cert long";
+       }
+ 
+       state.attestationCertDER = base64js.fromByteArray(new Uint8Array(getArrayBuffer("createOut", attObj.attStmt.x5c[0])));
+       append("createOut", "PEM-encoded Certificate:\n-----BEGIN CERTIFICATE-----\n" + state.attestationCertDER.replace(/(.{60})/g, "$1\n") + "\n-----END CERTIFICATE-----\n");
+       console.log("DER-encoded Certificate: ", state.attestationCertDER);
+ 
+       let certAsn1 = org.pkijs.fromBER(getArrayBuffer("createOut", state.attestationCertDER));
+       if (!test("createOut", asn1Okay(certAsn1), "Attestation Certificate parsed")) {
+         throw "Attestation Certificate didn't parse correctly.";
+       }
+ 
+       state.attestationCert = new org.pkijs.simpl.CERT({ schema: certAsn1.result });
+       append("createOut", "Attestation Cert\n");
+       append("createOut", "Subject: " + state.attestationCert.subject.types_and_values[0].value.value_block.value + "\n");
+       append("createOut", "Issuer: " + state.attestationCert.issuer.types_and_values[0].value.value_block.value + "\n");
+       append("createOut", "Validity (in millis): " + (state.attestationCert.notAfter.value - state.attestationCert.notBefore.value + "\n"));
+ 
+       state.attestationSig = attObj.attStmt.sig;
+       let sigAsn1 = org.pkijs.fromBER(getArrayBuffer("createOut", state.attestationSig));
+       if (!test("createOut", asn1Okay(certAsn1), "Attestation Signature parsed")) {
+         throw "Attestation Signature failed to validate";
+       }
+ 
+       await state.attestationCert.verify()
+       .then((result) => {
+         test("createOut", result, "Attestation certificate signature verified successfully");
+       })
+       .catch((error) => {
+         append("createOut", "[NOTE] Attestation cert signature verification couldn't continue, probably because of a lack of issuer cert: " + error + "\n");
+       });
+ 
+       testEqual("createOut", sigAsn1.result.block_length, getArrayBuffer("createOut", state.attestationSig).byteLength, "Signature buffer has no unnecessary bytes.");
+ 
+       append("createOut", "Attestation Signature (by the key in the cert, over the new credential):\n");
+       let R = new Uint8Array(sigAsn1.result.value_block.value[0].value_block.value_hex);
+       let S = new Uint8Array(sigAsn1.result.value_block.value[1].value_block.value_hex);
+       append("createOut", "R-component: " + hexEncode(R) + "\n");
+       append("createOut", "S-component: " + hexEncode(S) + "\n");
+ 
+       aAttestationObj.attestationObject = attObj;
+       return Promise.resolve(aAttestationObj);
+     });
+   }
+ 
+   if (attObj.fmt == "none") {
+     append("createOut", "\n:: \"None\" Attestation Format ::\n");
+     return webAuthnDecodeAuthDataArray(new Uint8Array(attObj.authData))
+     .then(function (aAttestationObj) {
+       aAttestationObj.attestationObject = attObj;
+       return Promise.resolve(aAttestationObj);
+     });
+   }
+ 
+   return Promise.reject("Unknown attestation format: " + attObj.fmt)
+ }
+ 
+ function webAuthnDecodeAuthDataArray(aAuthData) {
+   let rpIdHash = aAuthData.slice(0, 32);
+   let flags = aAuthData.slice(32, 33);
+   let counter = aAuthData.slice(33, 37);
+ 
+   console.log(":: Attestation Object Data ::");
+   console.log("RP ID Hash: " + hexEncode(rpIdHash));
+   console.log("Counter: " + hexEncode(counter) + " Flags: " + flags);
+ 
+   if ((flags & flag_AT) == 0x00) {
+     // No Attestation Data, so we're done.
+     return Promise.resolve({
+       rpIdHash: rpIdHash,
+       flags: flags,
+       counter: counter,
+     });
+   }
+ 
+   if (aAuthData.length < 38) {
+     throw "Attestation Data flag was set, but not enough data passed in!";
+   }
+ 
+   let attData = {};
+   attData.aaguid = aAuthData.slice(37, 53);
+   attData.credIdLen = (aAuthData[53] << 8) + aAuthData[54];
+   attData.credId = aAuthData.slice(55, 55 + attData.credIdLen);
+ 
+   console.log(":: Attestation Data ::");
+   console.log("AAGUID: " + hexEncode(attData.aaguid));
+ 
+   cborPubKey = aAuthData.slice(55 + attData.credIdLen);
+   var pubkeyObj = CBOR.decode(getArrayBuffer("", cborPubKey));
+   if (!(cose_kty in pubkeyObj && cose_alg in pubkeyObj && cose_crv in pubkeyObj
+         && cose_crv_x in pubkeyObj && cose_crv_y in pubkeyObj)) {
+     throw "Invalid CBOR Public Key Object";
+   }
+   if (pubkeyObj[cose_kty] != cose_kty_ec2) {
+     throw "Unexpected key type";
+   }
+   if (pubkeyObj[cose_alg] != cose_alg_ECDSA_w_SHA256) {
+     throw "Unexpected public key algorithm";
+   }
+   if (pubkeyObj[cose_crv] != cose_crv_P256) {
+     throw "Unexpected curve";
+   }
+ 
+   let pubKeyBytes = assemblePublicKeyBytesData(pubkeyObj[cose_crv_x], pubkeyObj[cose_crv_y]);
+   console.log(":: CBOR Public Key Object Data ::");
+   console.log("kty: " + pubkeyObj[cose_kty] + " (EC2)");
+   console.log("alg: " + pubkeyObj[cose_alg] + " (ES256)");
+   console.log("crv: " + pubkeyObj[cose_crv] + " (P256)");
+   console.log("X: " + pubkeyObj[cose_crv_x]);
+   console.log("Y: " + pubkeyObj[cose_crv_y]);
+   console.log("Uncompressed (hex): " + hexEncode(pubKeyBytes));
+ 
+   return importPublicKey(pubKeyBytes)
+   .then(function(aKeyHandle) {
+     return Promise.resolve({
+       rpIdHash: rpIdHash,
+       flags: flags,
+       counter: counter,
+       attestationAuthData: attData,
+       publicKeyBytes: pubKeyBytes,
+       publicKeyHandle: aKeyHandle,
+     });
+   });
+ }
+ 
+ function importPublicKey(keyBytes) {
+   if (keyBytes[0] != 0x04 || keyBytes.byteLength != 65) {
+     throw "Bad public key octet string";
+   }
+   let jwk = {
+     kty: "EC",
+     crv: "P-256",
+     x: b64enc(keyBytes.subarray(1,33)),
+     y: b64enc(keyBytes.subarray(33))
+   };
+   return crypto.subtle.importKey("jwk", jwk, {name: "ECDSA", namedCurve: "P-256"}, true, ["verify"])
+ }
+ 
+ function verifySignature(key, data, derSig) {
+   let derSigArray = new Uint8Array(derSig);
+   if (derSig.byteLength < 70) {
+     console.log("bad sig: " + hexEncode(derSigArray))
+     throw "Invalid signature length: " + derSig.byteLength;
+   }
+ 
+   // Poor man's ASN.1 decode
+   // R and S are always 32 bytes.  If ether has a DER
+   // length > 32, it's just zeros we can chop off.
+   let lenR = derSigArray[3];
+   let lenS = derSigArray[3 + lenR + 2];
+   let padR = lenR - 32;
+   let padS = lenS - 32;
+   let sig = new Uint8Array(64);
+   derSigArray.subarray(4+padR,4+lenR).map(function(x,i) { return sig[i] = x });
+   derSigArray.subarray(4+lenR+2+padS,4+lenR+2+lenS).map(function(x,i) { return sig[32+i] = x });
+ 
+   console.log("lenR:   ", lenR, " lenS: ", lenS);
+   console.log("key:    ", key, hexEncode(key));
+   console.log("data:   ", data, hexEncode(data));
+   console.log("derSig: ", derSigArray, hexEncode(derSigArray));
+   console.log("sig:    ", sig, hexEncode(sig));
+ 
+   let alg = {name: "ECDSA", hash: "SHA-256"};
+   return crypto.subtle.verify(alg, key, sig, data);
+ }
+ 
+ function asn1Okay(asn1) {
+   if (asn1.result.error.length > 0) {
+     console.log("Error: " + asn1.result.error);
+     append("createOut", "Error: " + asn1.result.error + "\n");
+     return false;
+   }
+   if (asn1.result.warnings.length > 0) {
+     console.log("Warning: " + asn1.result.warnings.toString());
+     append("createOut", "Warning: " + asn1.result.warnings.toString() + "\n");
+     return false;
+   }
+   return true;
+ }
+ 
+ function promiseU2FRegister(aAppId, aChallenges, aExcludedKeys, aFunc) {
+   return new Promise(function(resolve, reject) {
+       u2f.register(aAppId, aChallenges, aExcludedKeys, function(res) {
+         aFunc(res);
+         resolve(res);
+       });
+   });
+ }
+ 
+ async function assembleU2FRegisterSignedData(appId, clientData, keyHandle, publicKeyBytes) {
+   let appIdBuf = string2buffer(appId);
+   let appParam = new Uint8Array(await crypto.subtle.digest("SHA-256", appIdBuf));
+   let clientParam = new Uint8Array(await crypto.subtle.digest("SHA-256", clientData));
+ 
+   let signedData = new Uint8Array(1 + 32 + 32 + keyHandle.length + publicKeyBytes.length);
+   signedData[0] = 0x00;
+   appParam.map(function(x, i) { return signedData[1+i] = x });
+   clientParam.map(function(x, i) { return signedData[33+i] = x });
+   keyHandle.map(function(x, i) { return signedData[65+i] = x });
+   publicKeyBytes.map(function(x, i) { return signedData[65+keyHandle.length+i] = x });
+ 
+   return signedData;
+ }
+ 
+ function doU2FRegister(challengeBytes) {
+   let regRequest = {
+     version: "U2F_V2",
+     challenge: b64enc(challengeBytes),
+   };
+ 
+   let appId = $("#appIdText").val();
+ 
+   append("createOut", JSON.stringify(regRequest, null, 2) + "\n\n");
+ 
+   promiseU2FRegister(appId, [regRequest], [], ()=>{})
+   .then(async function(regResponse) {
+     state.regResponse = regResponse;
+     append("createOut", "Got response:\n");
+     append("createOut", JSON.stringify(regResponse, null, 2) + "\n\n");
+ 
+     if (regResponse.errorCode) {
+       throw "Unexpected error code: " + regResponse.errorCode;
+     }
+ 
+     // Parse the response data
+     var registrationData = b64dec(regResponse.registrationData);
+     if (registrationData[0] != 0x05) {
+       throw "Reserved byte not set correctly";
+     }
+ 
+     state.publicKeyBytes = registrationData.subarray(1, 66);
+     var keyHandleLength = registrationData[66];
+     state.keyHandleBytes = registrationData.subarray(67, 67 + keyHandleLength)
+     state.keyHandle = b64enc(state.keyHandleBytes);
+     state.attestation = new Uint8Array(registrationData.subarray(67 + keyHandleLength));
+ 
+     append("createOut", "Key Handle: " + state.keyHandle + "\n");
+ 
+     var certAsn1 = org.pkijs.fromBER(state.attestation.buffer);
+     if (!asn1Okay(certAsn1)) {
+       throw "Cert ASN.1 not okay";
+     }
+     state.attestationSig = new Uint8Array(state.attestation.slice(certAsn1.offset));
+     state.attestationCert = new org.pkijs.simpl.CERT({ schema: certAsn1.result });
+     append("createOut", "Attestation Cert\n");
+     append("createOut", "Subject: " + state.attestationCert.subject.types_and_values[0].value.value_block.value + "\n");
+     append("createOut", "Issuer: " + state.attestationCert.issuer.types_and_values[0].value.value_block.value + "\n");
+     append("createOut", "Validity (in millis): " + (state.attestationCert.notAfter.value - state.attestationCert.notBefore.value + "\n"));
+ 
+     var sigAsn1 = org.pkijs.fromBER(state.attestationSig.buffer);
+     if (!asn1Okay(sigAsn1)) {
+       throw "Signature ASN.1 not okay";
+     }
+ 
+     append("createOut", "Attestation Signature\n");
+     var R = new Uint8Array(sigAsn1.result.value_block.value[0].value_block.value_hex);
+     var S = new Uint8Array(sigAsn1.result.value_block.value[1].value_block.value_hex);
+     append("createOut", "R: " + hexEncode(R) + "\n");
+     append("createOut", "S: " + hexEncode(S) + "\n");
+ 
+     testEqual("createOut", sigAsn1.result.block_length, state.attestationSig.buffer.byteLength, "Signature buffer has no unnecessary bytes.");
+ 
+     // Verify that the clientData makes sense
+     var clientData = b64dec(regResponse.clientData)
+ 
+     var clientDataJSON = "";
+     clientData.map(function(x) { return clientDataJSON += String.fromCharCode(x) });
+     var clientDataObj = JSON.parse(clientDataJSON);
+     console.log("ClientData: ", clientDataObj);
+     testEqual("createOut", "navigator.id.finishEnrollment", clientDataObj.typ, "Correct type");
+     testEqual("createOut", b64enc(challengeBytes), clientDataObj.challenge, "Challenge matches");
+     testEqual("createOut", window.location.origin, clientDataObj.origin, "Origin matches");
+ 
+     // Import the attestation certificate's public key
+     state.certPubKey = await importPublicKey(new Uint8Array(state.attestationCert.subjectPublicKeyInfo.subjectPublicKey.value_block.value_hex));
+     let signedData = await assembleU2FRegisterSignedData(appId, clientData, state.keyHandleBytes, state.publicKeyBytes);
+     let verified = await verifySignature(state.certPubKey, signedData, new Uint8Array(state.attestationSig.buffer));
+     test("createOut", verified, "Verified certificate attestation signature");
+ 
+     state.createResponse = { rawId: state.keyHandleBytes };
+     state.publicKey = await importPublicKey(state.publicKeyBytes);
+   })
+   .catch(function (aErr) {
+     gResults.fail();
+     append("createOut", "Got error:\n");
+     append("createOut", aErr.toString() + "\n\n");
+   })
+   .then(function (){
+     resultColor("createOut");
+     append("createOut", gResults.toString());
+   });
+ }
+ 
+ function doWebAuthnCreate(challengeBytes) {
+   let createRequest = {
+     challenge: challengeBytes,
+     // Relying Party:
+     rp: {
+       name: "Acme"
+     },
+ 
+     // User:
+     user: {
+       id: string2buffer("1098237235409872"),
+       name: "john.p.smith@example.com",
+       displayName: "John P. Smith",
+       icon: "https://pics.acme.com/00/p/aBjjjpqPb.png"
+     },
+ 
+     pubKeyCredParams: [
+       {
+         alg: cose_alg_ECDSA_w_SHA256,
+         type: "public-key",
+       }
+     ],
+ 
+     authenticatorSelection: {
+       authenticatorAttachment: "cross-platform",
+       requireResidentKey: false,
+       userVerification: "preferred"
+     },
+ 
+     attestation: undefined,
+     timeout: 60000,  // 1 minute
+     excludeCredentials: [], // No excludeList
+     extensions: { "exts": true }
+   };
+ 
+   let rpid = document.domain;
+   if ($("#rpIdText").val()) {
+     rpid = $("#rpIdText").val();
+     createRequest.rp.id = rpid;
+   }
+ 
+   if ($("#attestationType").val() != "") {
+     createRequest.attestation = $("#attestationType").val();
+   }
+ 
+   state.createRequest = createRequest;
+ 
+   console.log("let createRequest = " + JSON.stringify(createRequest, null, 2));
+   console.log("navigator.credentials.create({ publicKey: createRequest })");
+ 
+   navigator.credentials.create({ publicKey: createRequest })
+   .then(function (aNewCredentialInfo) {
+     state.createResponse = aNewCredentialInfo
+     append("createOut", "Note: Raw response in console.\n");
+     console.log("Credentials.Create response: ", aNewCredentialInfo);
+ 
+     let buffer = getArrayBuffer("createOut", aNewCredentialInfo.response.attestationObject);
+     return webAuthnDecodeCBORAttestation(buffer);
+   })
+   .then(function (aAttestation) {
+     // Make sure the RP ID hash matches what we calculate.
+     return crypto.subtle.digest("SHA-256", string2buffer(rpid))
+     .then(function(calculatedHash) {
+       testEqual("createOut", b64enc(new Uint8Array(calculatedHash)), b64enc(aAttestation.rpIdHash),
+          "Calculated RP ID hash must match what the browser derived.");
+       return Promise.resolve(aAttestation);
+     });
+   })
+   .then(async function (aAttestation) {
+     let flags = new Uint8Array(aAttestation.flags);
+     testEqual("createOut", flags & (flag_TUP | flag_AT) , (flag_TUP | flag_AT), "User presence and Attestation Object must both be set");
+     testEqual("createOut", hexEncode(aAttestation.attestationAuthData.credId), hexEncode(state.createResponse.rawId), "Credential ID from CBOR and Raw ID match");
+     state.keyHandle = state.createResponse.rawId;
+     append("createOut", "Keypair Identifier: " + hexEncode(state.keyHandle) + "\n");
+     append("createOut", "Public Key: " + hexEncode(aAttestation.publicKeyBytes) + "\n");
+ 
+     state.publicKey = aAttestation.publicKeyHandle;
+ 
+     append("createOut", "\n:: CBOR Attestation Object Data ::\n");
+     append("createOut", "RP ID Hash: " + hexEncode(aAttestation.rpIdHash) + "\n");
+     append("createOut", "Counter: " + hexEncode(aAttestation.counter) + " Flags: " + flags + "\n");
+     append("createOut", "AAGUID: " + hexEncode(aAttestation.attestationAuthData.aaguid) + "\n");
+ 
+ 
+     /* Decode Client Data */
+     append("createOut", "\n:: Client Data Information ::\n");
+     let clientData = JSON.parse(buffer2string(state.createResponse.response.clientDataJSON));
+     append("createOut", "Client Data object, in full:\n");
+     append("createOut", JSON.stringify(clientData, null, 2) + "\n\n");
+ 
+     testEqual("createOut", b64enc(challengeBytes), clientData.challenge, "Challenge matches");
+     if ("androidPackageName" in clientData) {
+       append("createOut", `Android origin is: ${clientData.origin} (unchecked)`)
+     } else {
+       testEqual("createOut", window.location.origin, clientData.origin, "ClientData.origin matches this origin (WD-06)");
+     }
+     if ("type" in clientData) {
+       testEqual("createOut", "webauthn.create", clientData.type, "Type is valid (WD-08)");
+     } else {
+       gResults.todo("clientData.type is not set (WD-08)");
+     }
+ 
+   }).then(function (){
+     append("createOut", "\n\nRaw request:\n");
+     append("createOut", JSON.stringify(createRequest, null, 2) + "\n\n");
+   }).catch(function (aErr) {
+     if ("name" in aErr && (aErr.name == "AbortError" || aErr.name == "NS_ERROR_ABORT")) {
+       gResults.reset();
+       append("createOut", "Aborted; retry?\n");
+     } else {
+       gResults.fail();
+       append("createOut", "Got error:\n");
+       append("createOut", aErr.toString() + "\n\n");
+     }
+   }).then(function (){
+     resultColor("createOut");
+     append("createOut", gResults.toString() + "\n\n");
+   });
+ }
+ 
+ $(document).ready(function() {
+   try {
+     PublicKeyCredential;
+   } catch (err) {
+     $("#error").text("Web Authentication API not found");
+     $("button").addClass("inactive");
+   }
+ 
+   if (document.location.origin.startsWith("http://")) {
+     $("#error").text("Loaded outside of a secure context. It shouldn't work.");
+   }
+ 
+   let success = true;
+ 
+   $("#createButton").click(function() {
+     $("#createOut").text("Contacting token... please perform your verification gesture (e.g., touch it, or plug it in)\n\n");
+     gResults.reset();
+ 
+     let challengeBytes = new Uint8Array(16);
+     window.crypto.getRandomValues(challengeBytes);
+ 
+     if ($("#appIdText").val()) {
+       doU2FRegister(challengeBytes);
+     } else {
+ 
+       do {
+         doWebAuthnCreate(challengeBytes);
+       } while($("#loopForever").prop("checked"));
+     }
+   });
+ 
+   $("#getButton").click(function() {
+     $("#getOut").text("");
+     gResults.reset();
+ 
+     if (!state.createResponse) {
+       gResults.fail();
+       append("getOut", "Need to make a credential first:\n");
+       return;
+     }
+ 
+     $("#getOut").text("Contacting token... please perform your verification gesture (e.g., touch it, or plug it in)\n\n");
+ 
+     let newCredential = {
+       type: "public-key",
+       id: new Uint8Array(state.createResponse.rawId),
+       transports: ["usb", "nfc", "ble"],
+     }
+     console.log("New Credential: ", newCredential);
+ 
+     let challengeBytes = new Uint8Array(16);
+     window.crypto.getRandomValues(challengeBytes);
+ 
+     let publicKeyCredentialRequestOptions = {
+       challenge: challengeBytes,
+       timeout: 60000,
+       allowCredentials: [newCredential],
+       userVerification: "preferred",
+       extensions: { "txAuthSimple": "Execute order 66." }
+     };
+ 
+     if ($("#appIdText").val()) {
+       publicKeyCredentialRequestOptions.extensions["appid"] = $("#appIdText").val();
+     }
+ 
+     let rpid = document.domain;
+     if ($("#rpIdText").val()) {
+       rpid = $("#rpIdText").val();
+       publicKeyCredentialRequestOptions.rpId = rpid;
+     }
+ 
+     navigator.credentials.get({publicKey: publicKeyCredentialRequestOptions})
+     .then(function(aAssertion) {
+       console.log("Credentials.Get response: ", aAssertion);
+       append("getOut", "Raw response in console.\n");
+ 
+       let clientData = JSON.parse(buffer2string(aAssertion.response.clientDataJSON));
+       testEqual("getOut", clientData.challenge, b64enc(challengeBytes), "Challenge is identical");
+       if ("androidPackageName" in clientData) {
+         append("getOut", `Android origin is: ${clientData.origin} (unchecked)`)
+       } else {
+         testEqual("getOut", window.location.origin, clientData.origin, "ClientData.origin matches this origin (WD-06)");
+       }
+       if ("type" in clientData) {
+         testEqual("createOut", "webauthn.get", clientData.type, "Type is valid (WD-08)");
+       } else {
+         gResults.todo("clientData.type is not set (WD-08)");
+       }
+ 
+       append("getOut", `Extensions: ${JSON.stringify(aAssertion.getClientExtensionResults())}\n`);
+ 
+       return webAuthnDecodeAuthDataArray(aAssertion.response.authenticatorData)
+       .then(async function(aAttestation) {
+         if (!testEqual("getOut", new Uint8Array(aAttestation.flags) & flag_TUP, flag_TUP, "User presence must be the only flag set")) {
+           throw "Assertion's user presence byte not set correctly.";
+         }
+ 
+         testEqual("getOut", aAttestation.counter.byteLength, 4, "Counter must be 4 bytes");
+ 
+         let flags = new Uint8Array(aAttestation.flags);
+ 
+         append("getOut", "\n:: CBOR Attestation Object Data ::\n");
+         append("getOut", "RP ID Hash: " + hexEncode(aAttestation.rpIdHash) + "\n");
+         append("getOut", "Counter: " + hexEncode(aAttestation.counter) + " Flags: " + flags + "\n");
+         append("getOut", "\n");
+ 
+         // Assemble the signed data and verify the signature
+         appId = document.domain
+ 
+         if ("appid" in aAssertion.getClientExtensionResults() && aAssertion.getClientExtensionResults().appid) {
+           appId = $("#appIdText").val();
+           append("getOut", `AppID extension set, using ${appId} as the value to hash\n`);
+         } else if ($("#rpIdText").val()) {
+           appId = $("#rpIdText").val();
+         }
+ 
+         return deriveAppAndChallengeParam(appId, aAssertion.response.clientDataJSON, aAttestation);
+       })
+       .then(function(aParams) {
+         testEqual("getOut", b64enc(aParams.appParam), b64enc(new Uint8Array(aParams.attestation.rpIdHash)),
+                   "Calculated RP ID hash must match what the browser derived.");
+         append("getOut", "ClientData buffer: " + hexEncode(aAssertion.response.clientDataJSON) + "\n\n");
+         append("getOut", "ClientDataHash: " + hexEncode(aParams.challengeParam) + "\n\n");
+         return assembleSignedData(aParams.appParam, aParams.attestation.flags,
+                                   aParams.attestation.counter, aParams.challengeParam);
+       })
+       .then(function(aSignedData) {
+         append("getOut", "Signed Data assembled: " + aSignedData + "\n");
+         console.log(state.publicKey, aSignedData, aAssertion.response.signature);
+         return verifySignature(state.publicKey, aSignedData, getArrayBuffer("getOut", aAssertion.response.signature));
+       })
+       .then(function(aSignatureValid) {
+         test("getOut", aSignatureValid, "The token signature must be valid.");
+       });
+     }).catch(function (aErr) {
+       if ("name" in aErr && (aErr.name == "AbortError" || aErr.name == "NS_ERROR_ABORT")) {
+         gResults.reset();
+         append("getOut", "Aborted; retry?\n");
+       } else {
+         gResults.fail();
+         append("getOut", "Got error:\n");
+         append("getOut", aErr.toString() + "\n\n");
+       }
+     }).then(function (){
+       append("getOut", "\n\nRaw request:\n");
+       append("getOut", JSON.stringify(publicKeyCredentialRequestOptions, null, 2) + "\n\n");
+     }).then(function (){
+       resultColor("getOut");
+       append("getOut", gResults.toString() + "\n\n");
+     });
+ 
+   });
+ });
+ 
