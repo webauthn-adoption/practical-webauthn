@@ -28,8 +28,10 @@
         crossorigin="anonymous"></script>
     <script type="text/javascript" src="/dist/js/webauthn.js"></script>
     <script type="text/javascript" src="/dist/js/cbor.js"></script>
-    <script type="text/javascript" src="/dist/js/base64.js"></script>    
+    <script type="text/javascript" src="/dist/js/base64.js"></script>
+    <script type="text/javascript" src="/dist/js/inspector.js" async></script>
     <link href="/dist/css/index.css" rel="stylesheet">
+    <link href="/dist/css/inspector.css" rel="stylesheet">
 </head>
 
 <body>        
@@ -40,11 +42,168 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
           <div class="navbar-nav">            
-            <a class="nav-item nav-link active" href="#">Homepage</a>
-            <a class="nav-item nav-link" href="#">Registration</a>            
+            <a class="nav-item nav-link" href="/">Homepage</a>            
+            <a class="nav-item nav-link active" href="#">Registration</a>            
             <a class="nav-item nav-link" href="#">Assertion</a>       
             <a class="nav-item nav-link" href="#">CBOR Decoder</a>
           </div>
         </div>
-      </nav>
+    </nav>
+    <div class="page container"> 
+      <div class="schedule row">
+          <div id="registration" class="input pane col-6">
+              <div class="schedule-title text-center">
+                Credential Creation Options
+              </div>
+              <div class="input pane-backdrop"> 
+                <div class="form">
+                  <span>
+                      <span>RP Info</span>
+                      <select name="create_rpInfo" id="create_rpInfo" class="float-right">
+                          <option value="undefined" selected="">Undefined RP ID</option>
+                          <option value="normal">This domain</option>                          
+                          <option value="securityerror">foo.com</option>
+                          <option value="emptyrpid">Empty RP ID</option>
+                          <option value="emptyrpname">Empty RP Name</option>
+                          <option value="emptyrpicon">Empty RP Icon</option>
+                      </select>
+                  </span>
+                  <hr>
+                  <span>
+                      <span>User Info</span>
+                      <select name="create_userInfo" id="create_userInfo" class="float-right">
+                          <option value="bob" selected="">Bob</option>
+                          <option value="alice">Alice</option>
+                          <option value="stella">Stella</option>
+                          <option value="mike">Mike</option>
+                          <option value="john">John</option>
+                          <option value="empty">Empty userInfo</option>
+                      </select>
+                  </span>
+                  <hr>
+      
+                  <span>
+                      <span>Attachment</span>
+                      <select name="create_authenticatorAttachment" id="create_authenticatorAttachment" class="float-right">
+                          <option value="undefined">Undefined</option>
+                          <option value="platform">Platform</option>
+                          <option value="cross-platform" selected="">Cross-Platform</option>
+                      </select>
+                  </span>
+                  <hr>                    
+      
+                  <span>
+                      <span>Resident Key</span>
+                      <select name="create_residentKey" id="create_residentKey" class="float-right">
+                          <option value="undefined" selected="">Undefined</option>
+                          <option value="discouraged">Discouraged</option>
+                          <option value="preferred">Preferred</option>
+                          <option value="required">Required</option>
+                      </select>
+                  </span>
+                  <hr>
+      
+                  <span>
+                      <span>User Verification</span>
+                      <select name="create_userVerification" id="create_userVerification" class="float-right">
+                          <option value="undefined" selected="">Undefined</option>
+                          <option value="discouraged">Discouraged</option>
+                          <option value="preferred">Preferred</option>
+                          <option value="required">Required</option>
+                      </select>
+                  </span>
+                  <hr>
+      
+                  <span>
+                      <span>Attestation</span>
+                      <select name="create_attestation" id="create_attestation" class="float-right">
+                          <option value="undefined" selected="">Undefined</option>
+                          <option value="none">None</option>
+                          <option value="indirect">Indirect</option>
+                          <option value="direct">Direct</option>
+                          <option value="enterprise">Enterprise</option>
+                      </select>
+                  </span>
+                  <hr>
+      
+                  <span>
+                      <span>CredProtect Extension</span>
+                      <select name="create_cred_protect" id="create_cred_protect" class="float-right">
+                          <option value="undefined" selected="">Undefined</option>
+                          <option value="userVerificationOptional">UVOptional</option>
+                          <option value="userVerificationOptionalWithCredentialIDList">UVOptionalWithCredIDList</option>
+                          <option value="userVerificationRequired">UVRequired</option>
+                      </select>
+                  </span>
+                  <hr>
+      
+                  <span>
+                      <span>Enforce CredProtect</span>
+                      <select name="create_cred_protect_enforce" id="create_cred_protect_enforce" class="float-right">
+                          <option value="undefined" selected="">Undefined</option>
+                          <option value="false">False</option>
+                          <option value="true">True</option>
+                      </select>
+                  </span>
+                  <hr>
+      
+                  <span>
+                      <span>HMAC Extension</span>
+                      <select name="create_hmac_create" id="create_hmac_create" class="float-right">
+                          <option value="undefined" selected="">Undefined</option>
+                          <option value="false">False</option>
+                          <option value="true">True</option>
+                      </select>
+                  </span>
+                  <hr>
+      
+                  <span>
+                      <span>MinPinLength Extension</span>
+                      <select name="create_minPinLength" id="create_minPinLength" class="float-right">
+                          <option value="undefined" selected="">Undefined</option>
+                          <option value="false">False</option>
+                          <option value="true">True</option>
+                      </select>
+                  </span>
+                  <hr>      
+      
+                  <span>
+                      <span>LargeBlob Extension</span>
+                      <select name="create_largeBlob" id="create_largeBlob" class="float-right">
+                          <option value="undefined" selected="">Undefined</option>
+                          <option value="preferred">Preferred</option>
+                          <option value="required">Required</option>
+                      </select>
+                  </span>
+                  <hr>
+      
+                  <div class="mdl-grid mdl-grid--no-spacing">
+                      <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect mdl-cell mdl-cell--6-col mdl-js-ripple-effect--ignore-events is-checked is-upgraded" for="create_ES256" data-upgraded=",MaterialCheckbox,MaterialRipple">
+                          <input type="checkbox" id="create_ES256" class="mdl-checkbox__input" checked="">
+                          <span class="mdl-checkbox__label">Use ES256</span>
+                      <span class="mdl-checkbox__focus-helper"></span><span class="mdl-checkbox__box-outline"><span class="mdl-checkbox__tick-outline"></span></span><span class="mdl-checkbox__ripple-container mdl-js-ripple-effect mdl-ripple--center" data-upgraded=",MaterialRipple"><span class="mdl-ripple"></span></span></label>
+                      <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect mdl-cell mdl-cell--6-col mdl-js-ripple-effect--ignore-events is-upgraded is-checked" for="create_RS256" data-upgraded=",MaterialCheckbox,MaterialRipple">
+                          <input type="checkbox" id="create_RS256" class="mdl-checkbox__input" checked="">
+                          <span class="mdl-checkbox__label">Use RS256</span>
+                      <span class="mdl-checkbox__focus-helper"></span><span class="mdl-checkbox__box-outline"><span class="mdl-checkbox__tick-outline"></span></span><span class="mdl-checkbox__ripple-container mdl-js-ripple-effect mdl-ripple--center" data-upgraded=",MaterialRipple"><span class="mdl-ripple"></span></span></label>
+                      <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect mdl-cell mdl-cell--6-col mdl-js-ripple-effect--ignore-events is-checked is-upgraded" for="create_EdDSA" data-upgraded=",MaterialCheckbox,MaterialRipple">
+                          <input type="checkbox" id="create_EdDSA" class="mdl-checkbox__input" checked="">
+                          <span class="mdl-checkbox__label">Use EdDSA</span>
+                      <span class="mdl-checkbox__focus-helper"></span><span class="mdl-checkbox__box-outline"><span class="mdl-checkbox__tick-outline"></span></span><span class="mdl-checkbox__ripple-container mdl-js-ripple-effect mdl-ripple--center" data-upgraded=",MaterialRipple"><span class="mdl-ripple"></span></span></label>
+                  </div>
+      
+                  <hr>                      
+                </div>                                           
+              </div>
+          </div>
+          <div class="output pane col-6">
+              <div class="text-center pane-title">
+                <b>Output</b>
+              </div>
+              <div class="pane-backdrop">
+                  
+              </div>
+          </div>
+      </div>                       
+  </div>
 </body>

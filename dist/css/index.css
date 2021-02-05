@@ -83,8 +83,8 @@
 *,
 *::before,
 *::after {
-  -webkit-box-sizing: border-box;
-          box-sizing: border-box;
+  /* -webkit-box-sizing: border-box; */
+  box-sizing: border-box;
 }
 
 html {
@@ -10233,7 +10233,7 @@ pre span {
 
 @media (min-width: 992px) {
   .container {
-    max-width: 960px;
+    /* max-width: 960px; */
   }
 }
 
