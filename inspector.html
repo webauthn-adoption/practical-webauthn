@@ -50,35 +50,35 @@
         </div>
     </nav>
     <div class="page container"> 
-      <div class="schedule row">
-          <div id="registration" class="input pane col-6">
-              <div class="schedule-title text-center">
-                Credential Creation Options
-              </div>
-              <div class="input pane-backdrop"> 
-                <div class="form">
+      <div id="registration" class="window row">
+        <div class="input pane col-6">
+          <div class="schedule-title text-center">
+            Credential Creation Options
+          </div>
+            <div class="input pane-backdrop"> 
+              <div class="form">
+                <span>
+                    <span>RP Info</span>
+                    <select name="create_rpInfo" id="create_rpInfo" class="float-right">
+                        <option value="undefined" selected="">Undefined RP ID</option>
+                        <option value="normal">This domain</option>                          
+                        <option value="securityerror">foo.com</option>
+                        <option value="emptyrpid">Empty RP ID</option>
+                        <option value="emptyrpname">Empty RP Name</option>
+                        <option value="emptyrpicon">Empty RP Icon</option>
+                    </select>
+                </span>
+                <hr>
                   <span>
-                      <span>RP Info</span>
-                      <select name="create_rpInfo" id="create_rpInfo" class="float-right">
-                          <option value="undefined" selected="">Undefined RP ID</option>
-                          <option value="normal">This domain</option>                          
-                          <option value="securityerror">foo.com</option>
-                          <option value="emptyrpid">Empty RP ID</option>
-                          <option value="emptyrpname">Empty RP Name</option>
-                          <option value="emptyrpicon">Empty RP Icon</option>
-                      </select>
-                  </span>
-                  <hr>
-                  <span>
-                      <span>User Info</span>
-                      <select name="create_userInfo" id="create_userInfo" class="float-right">
-                          <option value="bob" selected="">Bob</option>
-                          <option value="alice">Alice</option>
-                          <option value="stella">Stella</option>
-                          <option value="mike">Mike</option>
-                          <option value="john">John</option>
-                          <option value="empty">Empty userInfo</option>
-                      </select>
+                    <span>User Info</span>
+                    <select name="create_userInfo" id="create_userInfo" class="float-right">
+                        <option value="bob" selected="">Bob</option>
+                        <option value="alice">Alice</option>
+                        <option value="stella">Stella</option>
+                        <option value="mike">Mike</option>
+                        <option value="john">John</option>
+                        <option value="empty">Empty userInfo</option>
+                    </select>
                   </span>
                   <hr>
       
@@ -204,6 +204,8 @@
                   
               </div>
           </div>
-      </div>                       
+    </div>  
+    <div id="assertion" class="window row" hidden></div>
+    <div id="decoding" class="window row" hidden></div>
   </div>
 </body>
